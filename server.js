@@ -239,8 +239,24 @@ app.listen(PORT, () => {
   console.log(`\n======================================================`);
   console.log(`🚀 Whop Content Rewards Bot is running!`);
   console.log(`🌐 Dashboard URL: http://localhost:${PORT}`);
-  console.log(`🔑 Default Master PIN: 1234`);
+  console.log(`🔑 Master PIN: ${dbService.getSetting('master_pin', '1234')}`);
   console.log(`======================================================\n`);
 
   schedulerService.initScheduler();
+
+  // Self-ping every 8 minutes to prevent Render Free Tier from spinning down
+  const renderExternalUrl = process.env.RENDER_EXTERNAL_URL || 'https://whop-rewards-bot.onrender.com';
+  if (renderExternalUrl && renderExternalUrl.includes('onrender.com')) {
+    console.log(`[KeepAlive] Self-ping active for ${renderExternalUrl} (every 8 minutes)`);
+    setInterval(async () => {
+      try {
+        await fetch(`${renderExternalUrl}/api/status`, {
+          headers: { 'x-app-pin': dbService.getSetting('master_pin', '1234') }
+        });
+        console.log(`[KeepAlive] Ping successful to prevent cloud sleep.`);
+      } catch (e) {
+        console.log(`[KeepAlive] Ping notice:`, e.message);
+      }
+    }, 8 * 60 * 1000);
+  }
 });
