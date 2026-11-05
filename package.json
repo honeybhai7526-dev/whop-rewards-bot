@@ -1,0 +1,19 @@
+{
+  "name": "whop-content-rewards-bot",
+  "version": "1.0.0",
+  "description": "24/7 Automation Hub to auto-detect YouTube Shorts and submit them to Whop Content Rewards campaigns",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "cheerio": "^1.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "node-cron": "^3.0.3"
+  }
+}
