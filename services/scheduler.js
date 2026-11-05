@@ -41,18 +41,14 @@ export const schedulerService = {
       const isFirstRunEver = existingStats.total === 0;
 
       for (const video of videos) {
-        const existing = dbService.getSubmissionByVideoId(video.videoId);
+        let existing = dbService.getSubmissionByVideoId(video.videoId);
         if (existing) {
-          // Already recorded
-          continue;
-        }
-
-        newCount++;
-
-        if (isFirstRunEver) {
-          // As decided: On initial setup, record existing videos so only future uploads are auto-submitted,
-          // while leaving them available in dashboard with a "Submit" button
-          console.log(`[Scheduler] Recording existing video: "${video.title}" (${video.videoId})`);
+          if (existing.status === 'submitted') {
+            continue;
+          }
+        } else {
+          newCount++;
+          console.log(`[Scheduler] 🚀 New Short detected: "${video.title}". Submitting to "${activeCampaign.name}"...`);
           dbService.createSubmission({
             video_id: video.videoId,
             video_title: video.title,
@@ -62,20 +58,7 @@ export const schedulerService = {
             campaign_name: activeCampaign.name,
             status: 'pending'
           });
-          continue;
         }
-
-        // New video detected after initial setup! Submit to active campaign
-        console.log(`[Scheduler] 🚀 New Short detected: "${video.title}". Submitting to "${activeCampaign.name}"...`);
-        dbService.createSubmission({
-          video_id: video.videoId,
-          video_title: video.title,
-          video_url: video.url,
-          published_at: video.publishedAt,
-          campaign_id: activeCampaign.id,
-          campaign_name: activeCampaign.name,
-          status: 'pending'
-        });
 
         await this.processSubmission(video.videoId);
         submittedCount++;
