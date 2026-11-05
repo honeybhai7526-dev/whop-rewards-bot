@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Whop Content Rewards — Auto Submitter</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-['Plus_Jakarta_Sans'] antialiased selection:bg-orange-500 selection:text-white">
+
+  <!-- PIN LOCK SCREEN OVERLAY -->
+  <div id="pinOverlay" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center">
+      <div class="w-16 h-16 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/20">
+        <i data-lucide="lock" class="w-8 h-8 text-white"></i>
+      </div>
+      <h2 class="text-2xl font-bold text-white mb-1">Enter Master PIN</h2>
+      <p class="text-slate-400 text-sm mb-6">Unlock your Whop Automation Hub</p>
+      
+      <div class="space-y-4">
+        <input type="password" id="pinInput" maxlength="8" placeholder="••••" 
+          class="w-full text-center text-3xl tracking-widest py-3 px-4 bg-slate-950 border border-slate-700 rounded-2xl focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 text-white font-mono"
+          autofocus>
+        <button id="unlockBtn" class="w-full py-3.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 font-semibold rounded-2xl text-white shadow-lg shadow-orange-500/25 transition active:scale-95">
+          Unlock Dashboard
+        </button>
+        <p id="pinError" class="text-rose-400 text-sm hidden font-medium"></p>
+        <p class="text-xs text-slate-500">Default PIN on first start: <span class="font-mono text-slate-400">1234</span></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP CONTAINER -->
+  <div class="max-w-6xl mx-auto px-4 py-6 md:py-10 space-y-8">
+    
+    <!-- NAVBAR -->
+    <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 bg-gradient-to-tr from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/20 shrink-0">
+          <i data-lucide="zap" class="w-6 h-6 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl md:text-2xl font-extrabold tracking-tight text-white">Whop Rewards Bot</h1>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              24/7 Active
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">Auto-Detecting Shorts &bull; Auto-Submitting to Whop</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5 self-end sm:self-auto">
+        <button id="checkNowBtn" class="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl text-sm font-medium border border-slate-700 transition active:scale-95">
+          <i data-lucide="refresh-cw" class="w-4 h-4" id="checkNowIcon"></i>
+          <span>Check Now</span>
+        </button>
+        <button id="openSettingsBtn" class="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl text-sm font-medium border border-slate-700 transition active:scale-95">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">Settings</span>
+        </button>
+        <button id="lockBtn" title="Lock Dashboard" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- ACTIVE CAMPAIGN HERO BANNER -->
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800/80 border border-slate-700/80 p-6 md:p-8 shadow-xl">
+      <div class="absolute -right-16 -top-16 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+        <div class="space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-orange-400">Target Campaign</span>
+            <span id="activeBadge" class="hidden px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-orange-500/20 text-orange-300 rounded border border-orange-500/30">Active</span>
+          </div>
+          <h2 id="campaignTitleDisplay" class="text-2xl md:text-3xl font-extrabold text-white">
+            No Campaign Configured
+          </h2>
+          <p id="campaignMetaDisplay" class="text-sm text-slate-400">
+            Paste a Whop Content Rewards campaign URL below to begin auto-submitting.
+          </p>
+        </div>
+
+        <button id="toggleChangeCampaignBtn" class="flex items-center gap-2 self-start md:self-auto px-5 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold rounded-2xl shadow-lg shadow-orange-500/20 transition active:scale-95">
+          <i data-lucide="link-2" class="w-4 h-4"></i>
+          <span>Change Campaign</span>
+        </button>
+      </div>
+
+      <!-- PASTE CAMPAIGN DRAWER (COLLAPSIBLE) -->
+      <div id="campaignDrawer" class="hidden mt-6 pt-6 border-t border-slate-800 space-y-4">
+        <label class="block text-sm font-semibold text-slate-300">
+          Paste Whop Content Rewards URL:
+        </label>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <input type="url" id="campaignUrlInput" placeholder="https://whop.com/bounties/... or https://whop.com/hub/..." 
+            class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20">
+          <button id="inspectCampaignBtn" class="flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold rounded-xl border border-slate-700 transition active:scale-95">
+            <i data-lucide="search" class="w-4 h-4"></i>
+            <span>Verify Campaign</span>
+          </button>
+        </div>
+
+        <!-- INSPECTION PREVIEW CARD -->
+        <div id="campaignPreviewCard" class="hidden bg-slate-950/80 border border-slate-700/80 rounded-2xl p-5 space-y-3">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Verified Whop Page</span>
+              <h3 id="previewTitle" class="text-lg font-bold text-white mt-1"></h3>
+              <p id="previewCommunity" class="text-xs text-slate-400"></p>
+            </div>
+            <div id="previewRate" class="text-right text-sm font-bold text-orange-400"></div>
+          </div>
+          <div class="pt-2 flex justify-end">
+            <button id="confirmCampaignBtn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-emerald-600/20 transition active:scale-95">
+              Lock In as Active Campaign
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATS OVERVIEW CARDS -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
+        <div class="flex items-center justify-between text-slate-400 text-xs font-semibold mb-2">
+          <span>Total Detected</span>
+          <i data-lucide="video" class="w-4 h-4 text-slate-500"></i>
+        </div>
+        <div id="statTotal" class="text-2xl md:text-3xl font-extrabold text-white">0</div>
+      </div>
+
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
+        <div class="flex items-center justify-between text-emerald-400 text-xs font-semibold mb-2">
+          <span>Submitted</span>
+          <i data-lucide="check-circle" class="w-4 h-4"></i>
+        </div>
+        <div id="statSubmitted" class="text-2xl md:text-3xl font-extrabold text-emerald-400">0</div>
+      </div>
+
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
+        <div class="flex items-center justify-between text-amber-400 text-xs font-semibold mb-2">
+          <span>In Retry Queue</span>
+          <i data-lucide="clock" class="w-4 h-4"></i>
+        </div>
+        <div id="statPending" class="text-2xl md:text-3xl font-extrabold text-amber-400">0</div>
+      </div>
+
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
+        <div class="flex items-center justify-between text-rose-400 text-xs font-semibold mb-2">
+          <span>Failed Alerts</span>
+          <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+        </div>
+        <div id="statFailed" class="text-2xl md:text-3xl font-extrabold text-rose-400">0</div>
+      </div>
+    </div>
+
+    <!-- YOUTUBE CHANNEL STRIP -->
+    <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="flex items-center gap-3.5">
+        <img id="channelAvatar" src="" alt="Channel Avatar" class="w-12 h-12 rounded-2xl border border-slate-700 object-cover shadow-md hidden shrink-0">
+        <div id="channelDefaultIcon" class="w-12 h-12 bg-red-600/10 border border-red-500/20 text-red-500 rounded-2xl flex items-center justify-center shrink-0">
+          <i data-lucide="youtube" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span id="channelTitleDisplay" class="font-bold text-white text-base">Not Configured</span>
+            <span id="channelVerifiedBadge" class="hidden px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 rounded-md border border-emerald-500/20">Connected</span>
+          </div>
+          <div id="channelHandleDisplay" class="text-xs text-slate-400 font-medium">Enter your handle in settings</div>
+        </div>
+      </div>
+      <button id="editChannelBtn" class="text-xs font-semibold text-orange-400 hover:text-orange-300 self-start sm:self-auto flex items-center gap-1">
+        <span>Change Channel in Settings</span>
+        <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>
+
+    <!-- SUBMISSION HISTORY TABLE -->
+    <div class="bg-slate-900/60 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+      <div class="p-6 border-b border-slate-800 flex items-center justify-between">
+        <div>
+          <h3 class="text-lg font-bold text-white">Clip Submission Stream</h3>
+          <p class="text-xs text-slate-400">Live feed of detected Shorts and their Whop submission status</p>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="bg-slate-950/60 text-xs uppercase font-bold text-slate-400 border-b border-slate-800">
+            <tr>
+              <th class="px-6 py-4">Short Title</th>
+              <th class="px-6 py-4">Published</th>
+              <th class="px-6 py-4">Target Campaign</th>
+              <th class="px-6 py-4">Status</th>
+              <th class="px-6 py-4 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody id="submissionsTableBody" class="divide-y divide-slate-800/60 font-medium">
+            <tr>
+              <td colspan="5" class="px-6 py-12 text-center text-slate-500">
+                <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+                No clips detected yet. Connect your YouTube channel in settings to begin!
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div id="settingsModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-6">
+      
+      <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div class="flex items-center gap-2">
+          <i data-lucide="sliders" class="w-5 h-5 text-orange-400"></i>
+          <h2 class="text-xl font-bold text-white">Settings & Integrations</h2>
+        </div>
+        <button id="closeSettingsBtn" class="p-1 text-slate-400 hover:text-white rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- 1. YOUTUBE CHANNEL -->
+      <div class="space-y-3">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">1. YouTube Channel</h4>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Channel Handle or Link</label>
+          <input type="text" id="settingYtHandle" placeholder="@YourChannelName or https://youtube.com/@channel"
+            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500">
+          <p class="text-[11px] text-slate-500 mt-1">Zero setup required. Just enter your handle.</p>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Optional: YouTube Data API Key</label>
+          <input type="password" id="settingYtApiKey" placeholder="AIzaSy... (leave blank to use RSS feed)"
+            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500">
+        </div>
+      </div>
+
+      <!-- 2. WHOP SESSION TOKEN -->
+      <div class="space-y-3 pt-3 border-t border-slate-800">
+        <div class="flex items-center justify-between">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">2. Whop Authentication</h4>
+          <span class="text-[11px] text-orange-400 cursor-pointer hover:underline" id="tokenHelpTrigger">How to get token?</span>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Whop Session Token or Cookie</label>
+          <input type="password" id="settingWhopToken" placeholder="Paste whop.core.access_token or cookie string"
+            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500">
+          <p class="text-[11px] text-slate-500 mt-1">Stays valid for months. Powers headless 24/7 clip submission.</p>
+        </div>
+        <!-- 1-Click Bookmarklet helper box -->
+        <div id="tokenHelpBox" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-400 space-y-1.5 hidden">
+          <div class="font-bold text-slate-200">1-Click Token Grabber:</div>
+          <p>Drag this button to your browser bookmarks bar: 
+            <a href="javascript:(function(){const c=document.cookie;navigator.clipboard.writeText(c);alert('Whop Session Cookie Copied to Clipboard! Now paste it in your Bot Settings.');})();"
+               class="inline-block px-2 py-1 bg-orange-500/20 text-orange-300 font-bold rounded border border-orange-500/30">
+               📋 Copy Whop Token
+            </a>
+          </p>
+          <p>Or open Whop.com &rarr; Press F12 &rarr; Application &rarr; Cookies &rarr; copy value of <code class="text-orange-400">whop.core.access_token</code> (starts with eyJ...).</p>
+        </div>
+      </div>
+
+      <!-- 3. TELEGRAM BOT NOTIFICATIONS -->
+      <div class="space-y-3 pt-3 border-t border-slate-800">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">3. Telegram Screen Alerts (Phone & PC)</h4>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Telegram Bot Token</label>
+          <input type="password" id="settingTgToken" placeholder="123456789:ABCdefGhIJKlmNoPQRstuv..."
+            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500">
+          <p class="text-[11px] text-slate-500 mt-1">Get free from @BotFather in Telegram.</p>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Telegram Chat ID</label>
+          <div class="flex gap-2">
+            <input type="text" id="settingTgChatId" placeholder="Your Telegram Chat ID"
+              class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500">
+            <button id="sendTgTestBtn" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 transition">
+              Test Alert
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-500 mt-1">Message @userinfobot on Telegram to get your Chat ID.</p>
+        </div>
+        <div class="flex items-center gap-2 pt-1">
+          <input type="checkbox" id="settingNotifySuccess" class="rounded bg-slate-950 border-slate-700 text-orange-500 focus:ring-orange-500">
+          <label for="settingNotifySuccess" class="text-xs text-slate-300 cursor-pointer">Also send Telegram notification for successful submissions</label>
+        </div>
+      </div>
+
+      <!-- 4. SECURITY (MASTER PIN) -->
+      <div class="space-y-3 pt-3 border-t border-slate-800">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">4. Master PIN Protection</h4>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Change Master PIN</label>
+          <input type="password" id="settingMasterPin" maxlength="8" placeholder="Enter new PIN"
+            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500">
+        </div>
+      </div>
+
+      <!-- SAVE BUTTON -->
+      <div class="pt-4 border-t border-slate-800 flex justify-end gap-3">
+        <button id="cancelSettingsBtn" class="px-5 py-2.5 text-sm text-slate-400 hover:text-white font-semibold">
+          Cancel
+        </button>
+        <button id="saveSettingsBtn" class="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold text-sm rounded-xl shadow-lg shadow-orange-500/20 transition active:scale-95">
+          Save Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATIONS -->
+  <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
