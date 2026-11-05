@@ -104,6 +104,63 @@ export const youtubeService = {
     }
   },
 
+  // Fetch real Shorts directly from the channel's /shorts tab
+  async fetchFromShortsPage(handle) {
+    if (!handle) return [];
+    const cleanHandle = handle.startsWith('@') ? handle : `@${handle}`;
+    try {
+      console.log(`[YouTube] Scraping Shorts tab for ${cleanHandle}...`);
+      const response = await fetch(`https://www.youtube.com/${cleanHandle}/shorts`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch /shorts: HTTP ${response.status}`);
+      }
+
+      const html = await response.text();
+      const rawMatches = [...html.matchAll(/\/shorts\/([a-zA-Z0-9_-]{11})/g)];
+      const uniqueIds = [...new Set(rawMatches.map(m => m[1]))];
+
+      if (uniqueIds.length === 0) {
+        console.log(`[YouTube] No Shorts found on /shorts page.`);
+        return [];
+      }
+
+      console.log(`[YouTube] Found ${uniqueIds.length} Short(s) on ${cleanHandle}:`, uniqueIds);
+
+      const shorts = [];
+      for (const id of uniqueIds.slice(0, 10)) {
+        let title = `YouTube Short (${id})`;
+        try {
+          const vRes = await fetch(`https://www.youtube.com/shorts/${id}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+          });
+          const vHtml = await vRes.text();
+          const tMatch = vHtml.match(/<meta property="og:title" content="([^"]+)"/);
+          if (tMatch && tMatch[1]) {
+            title = tMatch[1].replace(/ - YouTube$/i, '').trim();
+          }
+        } catch (e) {}
+
+        shorts.push({
+          videoId: id,
+          title,
+          url: `https://www.youtube.com/shorts/${id}`,
+          publishedAt: new Date().toISOString()
+        });
+      }
+
+      return shorts;
+    } catch (err) {
+      console.error('[YouTube] Error scraping /shorts:', err.message);
+      return [];
+    }
+  },
+
   // Fetch recent videos via RSS Atom feed
   async fetchFromRss(channelId) {
     try {
@@ -189,11 +246,17 @@ export const youtubeService = {
     }
 
     let videos = [];
-    if (apiKey) {
+    // 1. Primary: Scrape /shorts page (always accurate for Shorts)
+    if (handleOrInput) {
+      videos = await this.fetchFromShortsPage(handleOrInput);
+    }
+
+    // 2. If API key provided and no videos found, try API
+    if ((!videos || videos.length === 0) && apiKey) {
       videos = await this.fetchFromApi(channelId, apiKey);
     }
 
-    // Fallback to RSS if API fails or no API key
+    // 3. Fallback to RSS
     if (!videos || videos.length === 0) {
       videos = await this.fetchFromRss(channelId);
     }
