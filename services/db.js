@@ -52,6 +52,52 @@ db.exec(`
   );
 `);
 
+// Auto-populate from Environment Variables if present (ensures cloud persistence on Render)
+const initFromEnv = () => {
+  const envMap = {
+    master_pin: process.env.MASTER_PIN,
+    youtube_handle: process.env.YOUTUBE_HANDLE,
+    youtube_channel_id: process.env.YOUTUBE_CHANNEL_ID,
+    youtube_channel_title: process.env.YOUTUBE_CHANNEL_TITLE,
+    youtube_channel_avatar: process.env.YOUTUBE_CHANNEL_AVATAR,
+    whop_session_token: process.env.WHOP_SESSION_TOKEN,
+    telegram_bot_token: process.env.TELEGRAM_BOT_TOKEN,
+    telegram_chat_id: process.env.TELEGRAM_CHAT_ID,
+    notify_on_success: process.env.NOTIFY_ON_SUCCESS
+  };
+
+  for (const [k, v] of Object.entries(envMap)) {
+    if (v) {
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES (?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `).run(k, String(v));
+    }
+  }
+
+  if (process.env.ACTIVE_CAMPAIGN_ID && process.env.ACTIVE_CAMPAIGN_URL && process.env.ACTIVE_CAMPAIGN_NAME) {
+    db.prepare('UPDATE campaigns SET is_active = 0').run();
+    db.prepare(`
+      INSERT INTO campaigns (id, whop_url, name, community_name, reward_rate, is_active, created_at)
+      VALUES (?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+      ON CONFLICT(id) DO UPDATE SET 
+        whop_url = excluded.whop_url,
+        name = excluded.name,
+        community_name = excluded.community_name,
+        reward_rate = excluded.reward_rate,
+        is_active = 1
+    `).run(
+      process.env.ACTIVE_CAMPAIGN_ID,
+      process.env.ACTIVE_CAMPAIGN_URL,
+      process.env.ACTIVE_CAMPAIGN_NAME,
+      process.env.ACTIVE_CAMPAIGN_COMMUNITY || 'Content Rewards',
+      process.env.ACTIVE_CAMPAIGN_RATE || ''
+    );
+  }
+};
+initFromEnv();
+
 export const dbService = {
   // Settings operations
   getSetting(key, defaultValue = null) {
