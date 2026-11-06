@@ -104,7 +104,62 @@ export const youtubeService = {
     }
   },
 
-  // Fetch real Shorts directly from the channel's /shorts tab
+  // Fetch details (title & real-time views) for a single YouTube Short
+  async getShortDetails(videoId) {
+    if (!videoId) return { title: null, views: '0 views' };
+    try {
+      const res = await fetch(`https://www.youtube.com/shorts/${videoId}`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9'
+        }
+      });
+      if (!res.ok) return { title: null, views: '0 views' };
+
+      const html = await res.text();
+      let title = null;
+      const tMatch = html.match(/<meta property="og:title" content="([^"]+)"/i);
+      if (tMatch && tMatch[1]) {
+        title = tMatch[1].replace(/ - YouTube$/i, '').trim();
+      }
+
+      let views = '0 views';
+      const vcMatch = html.match(/"viewCount":"([^"]+)"/i);
+      if (vcMatch && vcMatch[1]) {
+        const num = parseInt(vcMatch[1], 10);
+        if (!isNaN(num)) {
+          views = `${num.toLocaleString('en-US')} views`;
+        }
+      } else {
+        const altMatch = html.match(/([0-9.,]+\s*[KMBkmb]?\s*views|[0-9.,]+\s*thousand views|\d+\s*view)/i);
+        if (altMatch) views = altMatch[0];
+      }
+
+      return { title, views };
+    } catch (e) {
+      return { title: null, views: '0 views' };
+    }
+  },
+
+  // Refresh real-time view counts for all submissions in database
+  async refreshAllViews() {
+    const submissions = dbService.getSubmissions(150);
+    console.log(`[YouTube] Refreshing real-time views for ${submissions.length} submission(s)...`);
+    for (const sub of submissions) {
+      try {
+        const details = await this.getShortDetails(sub.video_id);
+        if (details.views && details.views !== '0 views') {
+          dbService.updateSubmission(sub.video_id, { views: details.views });
+          console.log(`[YouTube] Updated views for ${sub.video_id} -> ${details.views}`);
+        }
+      } catch (e) {
+        console.error(`[YouTube] Failed to refresh views for ${sub.video_id}:`, e.message);
+      }
+    }
+    return dbService.getSubmissions(150);
+  },
+
+  // Fetch real Shorts directly from the channel's /shorts tab with real-time views
   async fetchFromShortsPage(handle) {
     if (!handle) return [];
     const cleanHandle = handle.startsWith('@') ? handle : `@${handle}`;
@@ -122,35 +177,70 @@ export const youtubeService = {
       }
 
       const html = await response.text();
+
+      // 1. Try parsing ytInitialData for structured Short metadata
+      const jsonMatch = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/);
+      const parsedItems = [];
+      if (jsonMatch) {
+        try {
+          const ytData = JSON.parse(jsonMatch[1]);
+          const searchObj = (obj) => {
+            if (!obj || typeof obj !== 'object') return;
+            if (obj.shortsLockupViewModel) {
+              const vm = obj.shortsLockupViewModel;
+              const id = vm.entityId ? vm.entityId.replace('shorts-shelf-item-', '') : null;
+              const aText = vm.accessibilityText || '';
+              const match = aText.match(/^(.*),\s*([0-9.,]+\s*[KMBkmb]?\s*(?:views|thousand views|million views|view))\s*-\s*play Short/i);
+              if (id) {
+                parsedItems.push({
+                  id,
+                  title: match ? match[1].trim() : aText.replace(/ - play Short$/i, '').trim(),
+                  views: match ? match[2].trim() : '0 views'
+                });
+              }
+              return;
+            }
+            for (const key of Object.keys(obj)) {
+              searchObj(obj[key]);
+            }
+          };
+          searchObj(ytData);
+        } catch (e) {
+          console.warn('[YouTube] Warning parsing ytInitialData:', e.message);
+        }
+      }
+
+      // 2. Also extract IDs via regex to make sure nothing is missed
       const rawMatches = [...html.matchAll(/\/shorts\/([a-zA-Z0-9_-]{11})/g)];
       const uniqueIds = [...new Set(rawMatches.map(m => m[1]))];
 
-      if (uniqueIds.length === 0) {
+      if (uniqueIds.length === 0 && parsedItems.length === 0) {
         console.log(`[YouTube] No Shorts found on /shorts page.`);
         return [];
       }
 
-      console.log(`[YouTube] Found ${uniqueIds.length} Short(s) on ${cleanHandle}:`, uniqueIds);
+      const allIds = [...new Set([...parsedItems.map(p => p.id), ...uniqueIds])].slice(0, 10);
+      console.log(`[YouTube] Found ${allIds.length} Short(s) on ${cleanHandle}:`, allIds);
 
       const shorts = [];
-      for (const id of uniqueIds.slice(0, 10)) {
-        let title = `YouTube Short (${id})`;
+      for (const id of allIds) {
+        const existingParsed = parsedItems.find(p => p.id === id);
+        let title = existingParsed?.title || `YouTube Short (${id})`;
+        let views = existingParsed?.views || '0 views';
+
+        // Fetch exact short page for real-time exact viewCount & title
         try {
-          const vRes = await fetch(`https://www.youtube.com/shorts/${id}`, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-          });
-          const vHtml = await vRes.text();
-          const tMatch = vHtml.match(/<meta property="og:title" content="([^"]+)"/);
-          if (tMatch && tMatch[1]) {
-            title = tMatch[1].replace(/ - YouTube$/i, '').trim();
-          }
+          const details = await this.getShortDetails(id);
+          if (details.title) title = details.title;
+          if (details.views && details.views !== '0 views') views = details.views;
         } catch (e) {}
 
         shorts.push({
           videoId: id,
           title,
           url: `https://www.youtube.com/shorts/${id}`,
-          publishedAt: new Date().toISOString()
+          publishedAt: new Date().toISOString(),
+          views
         });
       }
 

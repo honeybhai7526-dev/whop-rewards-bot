@@ -286,6 +286,11 @@ function renderSubmissions(list) {
             <span class="truncate">${item.video_title}</span>
           </a>
         </td>
+        <td class="px-6 py-4">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+            <i data-lucide="eye" class="w-3.5 h-3.5"></i> ${item.views || '0 views'}
+          </span>
+        </td>
         <td class="px-6 py-4 text-xs text-slate-400">${dateFormatted}</td>
         <td class="px-6 py-4 text-xs text-slate-300">${item.campaign_name || '—'}</td>
         <td class="px-6 py-4">${statusBadge}</td>
@@ -297,16 +302,38 @@ function renderSubmissions(list) {
   lucide.createIcons();
 }
 
+// Refresh real-time views button
+const refreshViewsBtn = document.getElementById('refreshViewsBtn');
+if (refreshViewsBtn) {
+  refreshViewsBtn.onclick = async () => {
+    try {
+      showToast('Refreshing real-time views from YouTube...', 'info');
+      refreshViewsBtn.classList.add('animate-pulse');
+      const res = await apiFetch('/api/submissions/refresh-views', { method: 'POST' });
+      const data = await res.json();
+      if (data.success && data.submissions) {
+        renderSubmissions(data.submissions);
+        showToast('Real-time views updated!', 'success');
+      }
+    } catch (e) {
+      showToast('Failed to refresh views', 'error');
+    } finally {
+      refreshViewsBtn.classList.remove('animate-pulse');
+    }
+  };
+}
+
 window.submitItem = async (videoId) => {
   try {
-    showToast('Submitting clip to Whop...', 'info');
-    const res = await apiFetch(`/api/submissions/${videoId}/submit`, { method: 'POST' });
+    showToast('Retrying submission to Whop...', 'info');
+    const res = await apiFetch(`/api/submissions/${videoId}/retry`, { method: 'POST' });
     const data = await res.json();
 
     if (data.success && data.submission.status === 'submitted') {
-      showToast('Clip submitted successfully to Whop!', 'success');
+      showToast('Clip submitted successfully to Whop! Telegram notified.', 'success');
     } else {
-      showToast(`Submission failed: ${data.submission.last_error || 'Unknown error'}`, 'error');
+      const errMsg = data.submission?.last_error || 'Submission error';
+      showToast(`Retry failed: ${errMsg}. Telegram notified.`, 'error');
     }
     loadAllData();
   } catch (err) {

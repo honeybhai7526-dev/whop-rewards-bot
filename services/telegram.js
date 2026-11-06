@@ -41,29 +41,40 @@ export const telegramService = {
     return await this.sendTelegramMessage(botToken, chatId, text);
   },
 
-  async sendSubmissionFailedAlert({ videoTitle, videoUrl, campaignName, error, attempts }) {
+  async sendSubmissionFailedAlert({ videoTitle, videoUrl, campaignName, error, attempts, isManual = false }) {
     const botToken = dbService.getSetting('telegram_bot_token');
     const chatId = dbService.getSetting('telegram_chat_id');
 
-    const text = `🚨 <b>Whop Clip Submission Failed!</b>\n\n` +
+    const titleHeader = isManual
+      ? `🔄 <b>Manual Retry: Submission Failed</b>`
+      : `⚠️ <b>Whop Clip Submission Notice (Attempt ${attempts}/3)</b>`;
+
+    const footer = isManual
+      ? `<i>Triggered manually from your dashboard.</i>`
+      : (attempts >= 3 
+          ? `<i>Auto-retry paused after 3 attempts. Background checker continues silently every 5 minutes for new Shorts. You can retry from your dashboard.</i>` 
+          : `<i>Will retry automatically.</i>`);
+
+    const text = `${titleHeader}\n\n` +
       `<b>Video:</b> ${videoTitle}\n` +
       `<b>URL:</b> ${videoUrl}\n` +
       `<b>Campaign:</b> ${campaignName || 'None'}\n` +
-      `<b>Attempts:</b> ${attempts}/3\n` +
       `<b>Reason:</b> <code>${error}</code>\n\n` +
-      `<i>Please open your dashboard to review or retry manually.</i>`;
+      footer;
 
     return await this.sendTelegramMessage(botToken, chatId, text);
   },
 
-  async sendSubmissionSuccessAlert({ videoTitle, videoUrl, campaignName }) {
+  async sendSubmissionSuccessAlert({ videoTitle, videoUrl, campaignName, forceNotify = false }) {
     const notifyOnSuccess = dbService.getSetting('notify_on_success', '0') === '1';
-    if (!notifyOnSuccess) return;
+    if (!notifyOnSuccess && !forceNotify) return;
 
     const botToken = dbService.getSetting('telegram_bot_token');
     const chatId = dbService.getSetting('telegram_chat_id');
 
-    const text = `✅ <b>Clip Submitted to Whop!</b>\n\n` +
+    const header = forceNotify ? `🎉 <b>Manual Submission Successful!</b>` : `✅ <b>Clip Submitted to Whop!</b>`;
+
+    const text = `${header}\n\n` +
       `<b>Video:</b> ${videoTitle}\n` +
       `<b>Campaign:</b> ${campaignName}\n` +
       `<b>Link:</b> ${videoUrl}`;

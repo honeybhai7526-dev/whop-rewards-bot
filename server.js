@@ -130,6 +130,25 @@ app.post('/api/submissions/:videoId/submit', async (req, res) => {
   }
 });
 
+app.post('/api/submissions/:videoId/retry', async (req, res) => {
+  try {
+    const { videoId } = req.params;
+    const updated = await schedulerService.submitManual(videoId);
+    res.json({ success: true, submission: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/submissions/refresh-views', async (req, res) => {
+  try {
+    const updatedSubmissions = await youtubeService.refreshAllViews();
+    res.json({ success: true, submissions: updatedSubmissions });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/check-now', async (req, res) => {
   try {
     const result = await schedulerService.runCheck();

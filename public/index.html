@@ -191,8 +191,12 @@
       <div class="p-6 border-b border-slate-800 flex items-center justify-between">
         <div>
           <h3 class="text-lg font-bold text-white">Clip Submission Stream</h3>
-          <p class="text-xs text-slate-400">Live feed of detected Shorts and their Whop submission status</p>
+          <p class="text-xs text-slate-400">Live feed of detected Shorts, real-time views, and Whop submission status</p>
         </div>
+        <button id="refreshViewsBtn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-cyan-400 hover:text-cyan-300 rounded-xl border border-slate-700 flex items-center gap-1.5 transition">
+          <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+          <span>Refresh Views</span>
+        </button>
       </div>
 
       <div class="overflow-x-auto">
@@ -200,6 +204,7 @@
           <thead class="bg-slate-950/60 text-xs uppercase font-bold text-slate-400 border-b border-slate-800">
             <tr>
               <th class="px-6 py-4">Short Title</th>
+              <th class="px-6 py-4">Views</th>
               <th class="px-6 py-4">Published</th>
               <th class="px-6 py-4">Target Campaign</th>
               <th class="px-6 py-4">Status</th>
@@ -208,7 +213,7 @@
           </thead>
           <tbody id="submissionsTableBody" class="divide-y divide-slate-800/60 font-medium">
             <tr>
-              <td colspan="5" class="px-6 py-12 text-center text-slate-500">
+              <td colspan="6" class="px-6 py-12 text-center text-slate-500">
                 <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
                 No clips detected yet. Connect your YouTube channel in settings to begin!
               </td>
@@ -249,28 +254,25 @@
         </div>
       </div>
 
-      <!-- 2. WHOP SESSION TOKEN -->
+      <!-- 2. WHOP AUTHENTICATION -->
       <div class="space-y-3 pt-3 border-t border-slate-800">
         <div class="flex items-center justify-between">
           <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">2. Whop Authentication</h4>
-          <span class="text-[11px] text-orange-400 cursor-pointer hover:underline" id="tokenHelpTrigger">How to get token?</span>
+          <span class="text-[11px] text-orange-400 cursor-pointer hover:underline" id="tokenHelpTrigger">Where to get API key?</span>
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Whop Session Token or Cookie</label>
-          <input type="password" id="settingWhopToken" placeholder="Paste whop.core.access_token or cookie string"
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Whop Developer API Key or Session Token</label>
+          <input type="password" id="settingWhopToken" placeholder="ak_... or whop session token"
             class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500">
-          <p class="text-[11px] text-slate-500 mt-1">Stays valid for months. Powers headless 24/7 clip submission.</p>
+          <p class="text-[11px] text-slate-500 mt-1">Recommended: Whop Developer API Key (starts with <code class="text-orange-400">ak_</code>). Never expires.</p>
         </div>
-        <!-- 1-Click Bookmarklet helper box -->
-        <div id="tokenHelpBox" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-400 space-y-1.5 hidden">
-          <div class="font-bold text-slate-200">1-Click Token Grabber:</div>
-          <p>Drag this button to your browser bookmarks bar: 
-            <a href="javascript:(function(){const c=document.cookie;navigator.clipboard.writeText(c);alert('Whop Session Cookie Copied to Clipboard! Now paste it in your Bot Settings.');})();"
-               class="inline-block px-2 py-1 bg-orange-500/20 text-orange-300 font-bold rounded border border-orange-500/30">
-               📋 Copy Whop Token
-            </a>
-          </p>
-          <p>Or open Whop.com &rarr; Press F12 &rarr; Application &rarr; Cookies &rarr; copy value of <code class="text-orange-400">whop.core.access_token</code> (starts with eyJ...).</p>
+        <!-- Helper box -->
+        <div id="tokenHelpBox" class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-400 space-y-2 hidden">
+          <div class="font-bold text-slate-200">How to get a permanent Whop API Key:</div>
+          <p>1. Open <a href="https://whop.com/dashboard/developer" target="_blank" class="text-orange-400 underline font-semibold">whop.com/dashboard/developer</a> in your browser.</p>
+          <p>2. Under <b>API Keys</b>, click <b>Create API Key</b>.</p>
+          <p>3. Copy the key (starts with <code class="text-orange-400 font-mono">ak_...</code>) and paste it here.</p>
+          <p class="text-slate-400 border-t border-slate-800 pt-2 mt-2"><i>Or paste your browser session cookie string.</i></p>
         </div>
       </div>
 

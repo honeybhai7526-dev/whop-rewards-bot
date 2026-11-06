@@ -48,9 +48,19 @@ db.exec(`
     last_error TEXT,
     whop_submission_id TEXT,
     submitted_at DATETIME,
+    views TEXT DEFAULT '0 views',
+    alert_sent INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 `);
+
+// Safe migrations for existing databases
+try {
+  db.exec(`ALTER TABLE submissions ADD COLUMN views TEXT DEFAULT '0 views';`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE submissions ADD COLUMN alert_sent INTEGER DEFAULT 0;`);
+} catch (e) {}
 
 // Auto-populate from Environment Variables if present (ensures cloud persistence on Render)
 const initFromEnv = () => {
@@ -165,15 +175,15 @@ export const dbService = {
     return stmt.all(limit);
   },
 
-  createSubmission({ video_id, video_title, video_url, published_at, campaign_id, campaign_name, status = 'pending' }) {
+  createSubmission({ video_id, video_title, video_url, published_at, campaign_id, campaign_name, status = 'pending', views = '0 views' }) {
     const stmt = db.prepare(`
-      INSERT INTO submissions (video_id, video_title, video_url, published_at, campaign_id, campaign_name, status, attempts)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+      INSERT INTO submissions (video_id, video_title, video_url, published_at, campaign_id, campaign_name, status, attempts, views, alert_sent)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 0)
     `);
-    return stmt.run(video_id, video_title, video_url, published_at, campaign_id || null, campaign_name || null, status);
+    return stmt.run(video_id, video_title, video_url, published_at, campaign_id || null, campaign_name || null, status, views);
   },
 
-  updateSubmission(videoId, { status, attempts, last_error, whop_submission_id, submitted_at, campaign_id, campaign_name }) {
+  updateSubmission(videoId, { status, attempts, last_error, whop_submission_id, submitted_at, campaign_id, campaign_name, views, alert_sent }) {
     const existing = this.getSubmissionByVideoId(videoId);
     if (!existing) return null;
 
@@ -184,20 +194,22 @@ export const dbService = {
     const newSubmittedAt = submitted_at !== undefined ? submitted_at : existing.submitted_at;
     const newCampaignId = campaign_id !== undefined ? campaign_id : existing.campaign_id;
     const newCampaignName = campaign_name !== undefined ? campaign_name : existing.campaign_name;
+    const newViews = views !== undefined ? views : (existing.views || '0 views');
+    const newAlertSent = alert_sent !== undefined ? alert_sent : (existing.alert_sent || 0);
 
     const stmt = db.prepare(`
       UPDATE submissions 
-      SET status = ?, attempts = ?, last_error = ?, whop_submission_id = ?, submitted_at = ?, campaign_id = ?, campaign_name = ?
+      SET status = ?, attempts = ?, last_error = ?, whop_submission_id = ?, submitted_at = ?, campaign_id = ?, campaign_name = ?, views = ?, alert_sent = ?
       WHERE video_id = ?
     `);
-    stmt.run(newStatus, newAttempts, newError, newWhopId, newSubmittedAt, newCampaignId, newCampaignName, videoId);
+    stmt.run(newStatus, newAttempts, newError, newWhopId, newSubmittedAt, newCampaignId, newCampaignName, newViews, newAlertSent, videoId);
     return this.getSubmissionByVideoId(videoId);
   },
 
   getPendingRetries() {
     const stmt = db.prepare(`
       SELECT * FROM submissions 
-      WHERE status IN ('pending', 'retrying') AND attempts < 4
+      WHERE status IN ('pending', 'retrying') AND attempts < 3
       ORDER BY id ASC
     `);
     return stmt.all();

@@ -118,13 +118,11 @@ export const whopService = {
   async submitClip({ videoUrl, videoTitle, campaignId, campaignUrl }) {
     const token = dbService.getSetting('whop_session_token');
     if (!token) {
-      throw new Error('Whop Session Token is not configured. Please paste your token in Settings.');
+      throw new Error('Whop Session Token / API Key is not configured. Please paste your token in Settings.');
     }
 
-    // Whop API endpoints for bounties / content rewards
-    // Endpoint 1: https://whop.com/api/v2/content_rewards/submissions
-    // Endpoint 2: GraphQL submission mutation
     const cleanToken = token.trim();
+    const isApiKey = cleanToken.startsWith('ak_') || cleanToken.startsWith('whop_ak_');
     const isFullCookie = cleanToken.includes('=');
     
     const headers = {
@@ -134,8 +132,11 @@ export const whopService = {
       'Referer': campaignUrl || 'https://whop.com'
     };
 
-    if (isFullCookie) {
+    if (isApiKey) {
+      headers['Authorization'] = `Bearer ${cleanToken}`;
+    } else if (isFullCookie) {
       headers['Cookie'] = cleanToken;
+      headers['Authorization'] = `Bearer ${cleanToken.replace(/^Bearer\s+/i, '')}`;
     } else {
       headers['Authorization'] = `Bearer ${cleanToken.replace(/^Bearer\s+/i, '')}`;
       headers['Cookie'] = `whop.core.access_token=${cleanToken}; whop_session=${cleanToken}`;
@@ -144,8 +145,8 @@ export const whopService = {
     console.log(`[Whop] Submitting clip ${videoUrl} to campaign ${campaignId}...`);
 
     try {
-      // Primary Whop Content Rewards Submission API
-      const response = await fetch('https://whop.com/api/v2/content_rewards/submissions', {
+      const endpoint = isApiKey ? 'https://api.whop.com/api/v2/content_rewards/submissions' : 'https://whop.com/api/v2/content_rewards/submissions';
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -158,8 +159,10 @@ export const whopService = {
 
       // Handle Authentication Failure
       if (response.status === 401 || response.status === 403) {
-        await telegramService.sendTokenExpiredAlert();
-        throw new Error('Whop session expired or unauthorized (HTTP 401/403). Telegram alert sent.');
+        const errorDetail = isApiKey
+          ? 'Whop API Key unauthorized (HTTP 401). Verify your API key in whop.com/dashboard/developer.'
+          : 'Whop session expired or unauthorized (HTTP 401). Browser session tokens expire every 1 hour. Please provide a permanent Developer API Key from whop.com/dashboard/developer (starts with ak_) or an active session cookie.';
+        throw new Error(errorDetail);
       }
 
       const text = await response.text();
@@ -171,7 +174,7 @@ export const whopService = {
       }
 
       if (!response.ok) {
-        const errorMsg = data.message || data.error || `HTTP ${response.status}: ${text.slice(0, 100)}`;
+        const errorMsg = data.message || data.error?.message || data.error || `HTTP ${response.status}: ${text.slice(0, 100)}`;
         throw new Error(errorMsg);
       }
 
